@@ -1,0 +1,8 @@
+menu "Slpt Drivers"
+
+config SLPT
+	bool "slpt driver"
+	select FB_DISPLAY_ALWAYS_ON
+	help
+
+endmenu

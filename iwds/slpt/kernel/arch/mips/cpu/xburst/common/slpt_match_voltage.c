@@ -1,0 +1,144 @@
+/*
+ * Copyright (C) 2015 Ingenic Semiconductor Co., Ltd.
+ * Authors: koson <kesen.liao@ingenic.cn>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the License, or (at your
+ * option) any later version.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+
+#include <common.h>
+#include <slpt_app.h>
+#include <slpt.h>
+#include <linux/string.h>
+
+struct voltage_pair {
+	int slpt_voltage;
+	int measure_voltage;
+};
+
+static struct voltage_pair aw808_voltage_correction_table[] = {
+	{3600, 3550},
+	{3648, 3605},
+	{3702, 3660},
+	{3752, 3721},
+	{3755, 3725},
+	{3796, 3770},
+	{3801, 3778},
+	{3854, 3838},
+	{3861, 3846},
+	{3905, 3894},
+	{3913, 3904},
+	{4001, 4010},
+	{4002, 4020},
+	{4013, 4030},
+	{4021, 4040},
+	{4031, 4050},
+	{4049, 4060},
+	{4051, 4070},
+	{4054, 4080},
+	{4058, 4090},
+	{4070, 4100},
+	{4081, 4110},
+	{4092, 4120},
+	{4104, 4130},
+	{4111, 4140},
+	{4122, 4150},
+	{4132, 4160},
+	{4144, 4170},
+};
+
+static struct voltage_pair in901_voltage_correction_table[] = {
+	{3647, 3565},
+	{3722, 3653},
+	{3733, 3663},
+	{3761, 3695},
+	{3763, 3699},
+	{3797, 3735},
+	{3801, 3743},
+	{3862, 3809},
+	{3867, 3820},
+	{3892, 3847},
+	{3894, 3853},
+	{3938, 3900},
+	{3944, 3908},
+	{3989, 3962},
+	{3995, 3974},
+	{4017, 3994},
+	{4029, 4010},
+	{4038, 4020},
+	{4046, 4030},
+	{4052, 4040},
+	{4062, 4050},
+	{4066, 4060},
+	{4076, 4070},
+	{4086, 4080},
+	{4098, 4090},
+	{4105, 4100},
+	{4181, 4181},
+	{4183, 4190},
+	{4198, 4210},
+	{4205, 4220},
+	{4212, 4230},
+	{4224, 4240},
+	{4233, 4250},
+	{4242, 4260},
+	{4250, 4270},
+	{4258, 4280},
+	{4268, 4290},
+	{4278, 4300},
+	{4287, 4310},
+	{4297, 4320},
+};
+
+
+static unsigned int do_match_the_voltage(struct voltage_pair *table, int size, unsigned int voltage)
+{
+	int i;
+	unsigned int start1, end1;
+	unsigned int start2, end2;
+
+	for(i = 0; i < size; i++)
+	{
+		if(table[i].slpt_voltage >= voltage)
+			break;
+	}
+	if(i == 0)
+		return voltage + (table[i].measure_voltage - table[i].slpt_voltage);
+	if(i == size)
+		return voltage + (table[i-1].measure_voltage - table[i-1].slpt_voltage);
+
+	start1 = table[i-1].slpt_voltage;
+	start2 = table[i-1].measure_voltage;
+	end1 = table[i].slpt_voltage;
+	end2 = table[i].measure_voltage;
+
+	return start2 + (((end2 - start2) * (voltage - start1)) / (end1 - start1));
+}
+
+unsigned int match_the_voltage(unsigned int voltage)
+{
+	const char *name;
+
+	/*The table default use the aw808_voltage_correction_table*/
+	struct voltage_pair *table = aw808_voltage_correction_table;
+	int size = ARRAY_SIZE(aw808_voltage_correction_table);
+
+	name = slpt_kernel_get_board_name();
+
+	if (name != NULL) {
+		if (!strcmp(name, "in901")) {
+			table = in901_voltage_correction_table;
+			size = ARRAY_SIZE(in901_voltage_correction_table);
+		} else if (!strcmp(name, "f1")) {
+			table = in901_voltage_correction_table;
+			size = ARRAY_SIZE(in901_voltage_correction_table);
+		}
+	}
+	return do_match_the_voltage(table, size, voltage);
+}

@@ -1,0 +1,98 @@
+#!/bin/bash
+
+TOOLDIR=$(readlink -f "$0")
+TOOLDIR=$(dirname "$TOOLDIR")
+
+BINDIR="$TOOLDIR/../spl"
+PADDIR="$BINDIR/pad"
+
+function objcopy () {
+    # $1: infile, $2: outfile
+    "$TOOLDIR/elf2bin" "$1" "$2" 2>/dev/null
+}
+
+function pfsv1_read () {
+    "$TOOLDIR/pfsv1-word-rw" --file="$BINDIR/spl.elf" --$1
+}
+
+function pfsv1_write () {
+    "$TOOLDIR/pfsv1-word-rw" --file="$BINDIR/spl.elf" --$1=$2
+}
+
+NAND_PAD="$PADDIR/nand_55aa"
+
+function dd_55 () {
+    dd if=/dev/zero ibs=32 count=1 2>/dev/null | tr "\000" "\125" >> "$NAND_PAD"
+}
+function dd_aa () {
+    dd if=/dev/zero ibs=32 count=1 2>/dev/null | tr "\000" "\252" >> "$NAND_PAD"
+}
+
+function nand_pad_creator () {
+
+    rm "$NAND_PAD"
+
+    if [ x`pfsv1_read nand_param.is_toggle` == x"1" ]; then
+        dd_aa; dd_aa
+    else
+        dd_55; dd_55
+    fi
+
+    if [ x`pfsv1_read nand_param.row_cycle` == x"2" ]; then
+        dd_55
+    else
+        dd_aa
+    fi
+
+    if [ x`pfsv1_read nand_param.page_size` == x"512" ]; then
+        dd_55; dd_55; dd_55
+    elif [ x`pfsv1_read nand_param.page_size` == x"2048" ]; then
+        dd_55; dd_aa; dd_55
+    elif [ x`pfsv1_read nand_param.page_size` == x"4096" ]; then
+        dd_aa; dd_55; dd_55
+    elif [ x`pfsv1_read nand_param.page_size` == x"8192" ]; then
+        dd_aa; dd_aa; dd_55
+    elif [ x`pfsv1_read nand_param.page_size` == x"16384" ]; then
+        dd_aa; dd_aa; dd_aa
+    else
+        echo "Error: bad nand_pagesize"
+        #exit -1
+    fi
+}
+
+cd "$BINDIR"
+
+pfsv1_write boot_method 0
+objcopy spl.elf spl0.bin
+pfsv1_write boot_method 1
+objcopy spl.elf spl1.bin
+pfsv1_write boot_method 2
+objcopy spl.elf spl2.bin
+
+echo "Checking spl.bin size ..."
+test `stat -c %s spl0.bin` -lt 13808 # 1024×14−528
+if [ $? -ne 0 ]; then
+    echo -e "Error: spl*.bin must be less than 13808 bytes!"
+    exit -1
+fi
+
+echo "Generating nand pad ..."
+nand_pad_creator
+
+echo "Generating spl_nand_pad.bin spl_mmc_pad.bin and spl_usb.bin ..."
+
+cat "$NAND_PAD" "$PADDIR/jr_f4000a10" > spl_nand_tmp.bin
+dd if=/dev/zero of=spl_nand_tmp.bin bs=1 count=0 seek=528 &>/dev/null # 512+16
+cat spl_nand_tmp.bin spl1.bin > spl_nand_pad.bin
+dd if=/dev/zero of=spl_nand_pad.bin bs=1 count=0 seek=16k &>/dev/null
+
+cat "$PADDIR/mbr" "$PADDIR/mmc_LPSM_pad" spl2.bin > spl_mmc_pad.bin
+dd if=/dev/zero of=spl_mmc_pad.bin bs=1 count=0 seek=16k &>/dev/null
+
+cat "$PADDIR/jr_f4000a10" > spl_usb_tmp.bin
+dd if=/dev/zero of=spl_usb_tmp.bin bs=1 count=0 seek=528 &>/dev/null # 512+16
+cat spl_usb_tmp.bin spl0.bin > spl_usb.bin
+
+rm *_tmp.bin
+
+echo "Done."

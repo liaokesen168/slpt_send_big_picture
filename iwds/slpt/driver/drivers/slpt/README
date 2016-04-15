@@ -1,0 +1,30 @@
+slpt directories:
+
+   /sys/slpt/res/    : to store global resources
+           ./apps/   : to store the apps
+           ./new  : register a new task
+           ./apply : currently selected task
+           ./enable : enable the selceted task
+           ./remove : unregister a task
+           ./run_task : run a task immediatly
+           ./task : select a task to run when suspend
+           ./task_info : show all tasks info
+
+   /sys/slpt/res/mem/ : mem is a global resources, each app can find it.
+               ./mem/data : to read or write resource
+                            if int, write read as a common sysfs file
+                            if mem, write read as a binary sysfs file
+               ./mem/length : resource length 0: int  other: mem
+
+   /sys/slpt/apps/test/ : test is a task
+                ./test/add_res : add a new resource for the task, for test
+                ./test/info : task info
+                ./test/reload: reload task to it's memory
+                ./test/rm_res : remove a resource of this task, for test
+                ./test/res : to store resources own by this task
+
+   /sys/slpt/apps/test/res/mem/ : mem is a resource
+                         ./mem/data : to read or write resource
+                                      if int, write read as a common sysfs file
+                                      if mem, write read as a binary sysfs file
+                         ./mem/length : resource length 0: int  other: mem

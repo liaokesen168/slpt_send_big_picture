@@ -1,0 +1,5 @@
+.
+|-- app			// applications
+|   `-- clock		// watch showing
+|-- kernel		// our kernel
+

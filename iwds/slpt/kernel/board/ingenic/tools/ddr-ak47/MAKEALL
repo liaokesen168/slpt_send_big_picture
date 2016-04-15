@@ -1,0 +1,8 @@
+#!/bin/bash
+
+rm -rf *.o ddr-ak47
+
+g++ -g -c ddr_ak47.cc -I/usr/include/qt4 -Wall -o ddr_ak47.o
+g++ -g -c wraper_jz4780.cc -Wall -o wraper_jz4780.o
+gcc -g -c ddr_param_creator.c -o ddr_param_creator.o
+g++ ddr_ak47.o wraper_jz4780.o ddr_param_creator.o -L/usr/lib/qt4 -lQtCore -o ddr-ak47
